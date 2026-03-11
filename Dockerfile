@@ -1,32 +1,33 @@
-# Stage 1: Build
-FROM node:20-alpine AS build
+# Stage 1: Builder (includes dev dependencies for TypeScript)
+FROM node:24-slim AS builder
 
-WORKDIR /app
+WORKDIR /src
 
-# Copy package files first for caching
-COPY package*.json tsconfig.json ./
-
-# Install dependencies (including dev for TypeScript build)
+# Install all dependencies (including dev)
+COPY package*.json ./
 RUN npm install
 
 # Copy source code
 COPY . .
 
-# Build TypeScript -> dist/
+# Compile TypeScript (src → dist)
 RUN npm run build
 
-# Stage 2: Runtime
-FROM node:20-alpine AS runtime
+# Stage 2: Production (only runtime deps)
+FROM node:24-slim AS production
 
-WORKDIR /app
+WORKDIR /src
 
-# Copy only necessary files from build stage
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/dist ./dist
+# Copy only package.json and lockfile
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Expose port
-EXPOSE 3000
+# Copy compiled output from builder
+COPY --from=builder /src/dist ./dist
 
-# Run compiled entrypoint
+# Healthcheck (uses PORT env variable, defaults to 3000)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
+
+# Run the app
 CMD ["node", "dist/index.js"]

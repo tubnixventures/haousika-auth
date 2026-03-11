@@ -11,7 +11,7 @@ import currentUser from "./routes/currentUser.js";
 import logout from "./routes/logout.js";
 import logoutAll from "./routes/logoutAll.js";
 import verifyAccount from "./routes/verifyAccount.js";
-import refreshToken from "./routes/refreshToken.js"; // new route
+import refreshToken from "./routes/refreshTokenRoute.js"; // new route
 
 const app = new Hono();
 

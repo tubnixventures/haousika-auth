@@ -44,6 +44,7 @@ export async function signupController(c: any) {
   const now = new Date().toISOString();
 
   const client = await db.getClient();
+
   try {
     await client.beginTransaction();
 
