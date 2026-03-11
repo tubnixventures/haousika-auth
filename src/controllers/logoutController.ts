@@ -1,4 +1,3 @@
-// controllers/logoutController.ts
 import { deleteSession } from "../utils/redis.js";
 import { verifyToken } from "../utils/jwt-util.js";
 
@@ -28,6 +27,15 @@ export default async function logoutController(c: any) {
       console.error("Redis error (logout):", redisErr);
       return c.json({ error: "Logout failed due to session system error" }, 500);
     }
+
+    // ✅ Clear cookie (base domain scope)
+    c.cookie("auth_token", "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      domain: ".housika.co.ke",   // must match the domain used when setting
+      maxAge: 0,                  // expire immediately
+    });
 
     return c.json({ message: "Logged out from current device/session" }, 200);
 

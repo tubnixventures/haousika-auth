@@ -72,8 +72,8 @@ export async function forgotPasswordController(c: any) {
     await setSession(`reset:${resetId}:otp`, otp, 300);
     await setSession(`reset:${resetId}:user`, String(user.id), 300);
 
-    // Build reset link (frontend route should handle token)
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}&id=${resetId}`;
+    // Build reset link pointing to your frontend
+    const resetLink = `https://www.housika.co.ke/reset-password?token=${token}&id=${resetId}`;
 
     // Send reset email (contains OTP + link)
     try {
@@ -87,7 +87,7 @@ export async function forgotPasswordController(c: any) {
       console.error("Mailer error:", mailErr);
       return c.json({
         message: "Reset request created, but email could not be sent. Please contact support.",
-        reset_id: resetId // still return reset_id so frontend can proceed
+        reset_id: resetId
       }, 202);
     }
 

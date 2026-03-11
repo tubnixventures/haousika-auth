@@ -17,7 +17,7 @@ export async function logoutAllController(c: any) {
 
     do {
       const [nextCursor, keys] = await redis.scan(cursor, {
-        match: "session:*", // lowercase 'match'
+        match: "session:*",
         count: 100,
       });
 
@@ -39,6 +39,15 @@ export async function logoutAllController(c: any) {
     // Record a logout timestamp for JWT revocation
     const now = Date.now().toString();
     await redis.set(`logout_all_at:${userId}`, now);
+
+    // ✅ Clear cookie (base domain scope)
+    c.cookie("auth_token", "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      domain: ".housika.co.ke",   // must match the domain used when setting
+      maxAge: 0,                  // expire immediately
+    });
 
     return c.json({
       message: `Cleared ${userSessionKeys.length} session(s). All tokens issued before ${now} are now invalid.`,

@@ -1,16 +1,27 @@
-// controllers/currentUserController.ts
 import { verifyToken } from "../utils/jwt-util.js";
-import { getSession } from "../utils/redis.js"; // assumes you have a getSession util
+import { getSession } from "../utils/redis.js";
 
 export async function currentUserController(c: any) {
   try {
-    // Get token from Authorization header
+    let token: string | null = null;
+
+    // 1. Try Authorization header
     const authHeader = c.req.header("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return c.json({ error: "Authorization header missing or invalid" }, 401);
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
     }
 
-    const token = authHeader.substring(7);
+    // 2. Fallback to cookie
+    if (!token) {
+      const cookieToken = c.req.cookie("auth_token");
+      if (cookieToken) {
+        token = cookieToken;
+      }
+    }
+
+    if (!token) {
+      return c.json({ error: "Authorization token missing (header or cookie)" }, 401);
+    }
 
     // Verify JWT
     let payload;
@@ -33,8 +44,8 @@ export async function currentUserController(c: any) {
       user: {
         id: payload.id,
         role: payload.role,
-        session_id: payload.session_id
-      }
+        session_id: payload.session_id,
+      },
     }, 200);
 
   } catch (err) {

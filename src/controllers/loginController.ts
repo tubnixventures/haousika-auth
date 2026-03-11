@@ -1,4 +1,3 @@
-// controllers/loginController.ts
 import { loginSchema } from "../models/loginModel.js";
 import { comparePassword } from "../utils/bcrypt.js";
 import { execute } from "../utils/db-util.js";
@@ -6,9 +5,6 @@ import { generateToken } from "../utils/jwt-util.js";
 import { setSession } from "../utils/redis.js";
 import { v4 as uuidv4 } from "uuid";
 
-/**
- * Normalize phone number to E.164 (+254...) if user entered local 07...
- */
 function normalizePhone(phone?: string): string | undefined {
   if (!phone) return undefined;
   if (phone.startsWith("0")) {
@@ -19,7 +15,6 @@ function normalizePhone(phone?: string): string | undefined {
 
 export async function loginController(c: any) {
   try {
-    // Parse and validate input
     const body = await c.req.json();
     const parsed = loginSchema.safeParse(body);
 
@@ -32,12 +27,9 @@ export async function loginController(c: any) {
     }
 
     let { email, phone_number, password } = parsed.data;
-
-    // Normalize phone number before lookup
     phone_number = normalizePhone(phone_number);
     const identifier = email ?? phone_number;
 
-    // Fetch user (SQLite/libsql uses ? placeholders)
     const result = await execute(
       `SELECT * FROM users WHERE email = ? OR phone_number = ? LIMIT 1`,
       [identifier, identifier]
@@ -48,13 +40,11 @@ export async function loginController(c: any) {
       return c.json({ error: "User not found" }, 404);
     }
 
-    // Verify password
     const valid = await comparePassword(password, String(user.password_hash));
     if (!valid) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
 
-    // Generate session + JWT
     const sessionId = uuidv4();
     const token = generateToken({
       id: String(user.id),
@@ -62,7 +52,6 @@ export async function loginController(c: any) {
       session_id: sessionId,
     }, "1h");
 
-    // Store session in Redis + update last_login
     try {
       const now = new Date().toISOString();
       await Promise.all([
@@ -71,15 +60,22 @@ export async function loginController(c: any) {
       ]);
     } catch (err) {
       console.error("Session/DB update error:", err);
-      return c.json({
-        message: "Login successful, but session persistence failed. Please re-login if issues occur.",
-        token,
-        role: user.role,
-        user_id: user.id,
-      }, 202);
     }
 
-    // Success response
+    // ✅ Hybrid token delivery
+    // 1. Header
+    c.header("Authorization", `Bearer ${token}`);
+
+    // 2. Cookie (base domain scope)
+    c.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      domain: ".housika.co.ke",   // <-- critical: cookie valid for all subdomains
+      maxAge: 3600,
+    });
+
+    // 3. Body
     return c.json({
       message: "Login successful",
       token,
