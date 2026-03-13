@@ -3,6 +3,7 @@ import { comparePassword } from "../utils/bcrypt.js";
 import { execute } from "../utils/db-util.js";
 import { generateToken } from "../utils/jwt-util.js";
 import { setSession } from "../utils/redis.js";
+import logger from "../utils/logger.js";
 import { v4 as uuidv4 } from "uuid";
 function normalizePhone(phone) {
     if (!phone)
@@ -49,7 +50,7 @@ export async function loginController(c) {
             ]);
         }
         catch (err) {
-            console.error("Session/DB update error:", err);
+            logger.error("Session/DB update error:", err);
         }
         // ✅ Hybrid token delivery
         // 1. Header
@@ -71,7 +72,7 @@ export async function loginController(c) {
         }, 200);
     }
     catch (err) {
-        console.error("LoginController error:", err);
+        logger.error("LoginController error:", err);
         return c.json({ error: "Internal server error. Please try again later." }, 500);
     }
 }

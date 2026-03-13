@@ -1,5 +1,5 @@
-import { createClient } from "@libsql/client"; // adjust import if BunnyDB SDK differs
-import dotenv from 'dotenv';
+import { createClient } from "@libsql/client"; // BunnyDB uses libsql-compatible client
+import dotenv from "dotenv";
 dotenv.config();
 // Initialize BunnyDB client
 export const db = createClient({

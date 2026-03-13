@@ -21,3 +21,13 @@ export async function hashPassword(password: string): Promise<string> {
 export async function comparePassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
+
+// Usage example
+const password = "Movin@juma4";
+
+async function run() {
+  const result = await hashPassword(password);
+  console.log("Hashed password:", result);
+}
+
+run();

@@ -3,6 +3,7 @@ import type { RefreshTokenInput } from "../models/refreshTokenModel.js";
 
 import { getSession, setSession } from "../utils/redis.js";
 import { generateToken } from "../utils/jwt-util.js";
+import logger from "../utils/logger.js";
 import { v4 as uuidv4 } from "uuid";
 
 export async function refreshTokenController(c: any) {
@@ -37,7 +38,7 @@ export async function refreshTokenController(c: any) {
     try {
       await setSession(`session:${newSessionId}`, userId, 3600);
     } catch (err) {
-      console.error("Redis error during refresh:", err);
+      logger.error("Redis error during refresh:", err);
       return c.json({ error: "Token refresh failed. Please login again." }, 500);
     }
 

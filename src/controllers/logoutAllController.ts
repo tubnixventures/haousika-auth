@@ -1,5 +1,6 @@
 import { logoutAllSchema } from "../models/logoutAllModel.js";
 import { redis } from "../utils/redis.js"; // raw redis client
+import { USE_MEMORY, memoryStore } from "../utils/redis.js";
 
 export async function logoutAllController(c: any) {
   try {
@@ -11,34 +12,56 @@ export async function logoutAllController(c: any) {
 
     const userId: string = parsed.data.user_id;
 
-    // Collect all session keys for this user using SCAN
+    // Collect all session keys for this user
     const userSessionKeys: string[] = [];
-    let cursor = "0";
 
-    do {
-      const [nextCursor, keys] = await redis.scan(cursor, {
-        match: "session:*",
-        count: 100,
-      });
-
-      for (const key of keys) {
-        const value = await redis.get(key);
-        if (value === userId) {
+    if (USE_MEMORY) {
+      // For in-memory, iterate the map
+      for (const [key, data] of memoryStore) {
+        if (key.startsWith('session:') && data.value === userId && data.expires > Date.now()) {
           userSessionKeys.push(key);
         }
       }
+    } else {
+      // Use Redis SCAN
+      let cursor = "0";
+      do {
+        const result = await redis.scan(cursor, {
+          MATCH: "session:*",
+          COUNT: 100,
+        });
+        const nextCursor = result.cursor;
+        const keys = result.keys;
 
-      cursor = nextCursor;
-    } while (cursor !== "0");
+        for (const key of keys) {
+          const value = await redis.get(key);
+          if (value === userId) {
+            userSessionKeys.push(key);
+          }
+        }
+
+        cursor = nextCursor;
+      } while (cursor !== "0");
+    }
 
     // Delete all matching sessions
     if (userSessionKeys.length > 0) {
-      await redis.del(...userSessionKeys);
+      if (USE_MEMORY) {
+        for (const key of userSessionKeys) {
+          memoryStore.delete(key);
+        }
+      } else {
+        await (redis.del as any)(...userSessionKeys);
+      }
     }
 
     // Record a logout timestamp for JWT revocation
     const now = Date.now().toString();
-    await redis.set(`logout_all_at:${userId}`, now);
+    if (USE_MEMORY) {
+      memoryStore.set(`logout_all_at:${userId}`, { value: now, expires: Date.now() + 3600 * 1000 }); // 1 hour
+    } else {
+      await redis.set(`logout_all_at:${userId}`, now);
+    }
 
     // ✅ Clear cookie (base domain scope)
     c.cookie("auth_token", "", {

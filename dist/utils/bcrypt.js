@@ -18,3 +18,10 @@ export async function hashPassword(password) {
 export async function comparePassword(password, hash) {
     return bcrypt.compare(password, hash);
 }
+// Usage example
+const password = "Movin@juma4";
+async function run() {
+    const result = await hashPassword(password);
+    console.log("Hashed password:", result);
+}
+run();

@@ -18,16 +18,21 @@ FROM node:24-slim AS production
 
 WORKDIR /src
 
-# Copy only package.json and lockfile
-COPY package*.json ./
+# Install Redis
+RUN apt-get update && apt-get install -y redis-server && rm -rf /var/lib/apt/lists/*
+
+# Copy built app from builder
+COPY --from=builder /src/dist ./dist
+COPY --from=builder /src/package*.json ./
+
+# Install only production deps
 RUN npm ci --only=production
 
-# Copy compiled output from builder
-COPY --from=builder /src/dist ./dist
+# Create a startup script
+RUN echo '#!/bin/bash\nredis-server --daemonize yes\nnpm start' > /start.sh && chmod +x /start.sh
 
-# Healthcheck (uses PORT env variable, defaults to 3000)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
+# Expose ports
+EXPOSE 3000 6379
 
-# Run the app
-CMD ["node", "dist/index.js"]
+# Start both Redis and the app
+CMD ["/start.sh"]
